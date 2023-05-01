@@ -18,6 +18,7 @@ db = SQLAlchemy(app)
 # User.query.filter_by(userName='Patryk').all() -> returns back the list of all of the users, but in this app the username is unique
 # User.query.filter_by(userName='Patryk').first() 
 # User.query.get(primary_key) -> legacy function (still possible to use), exchanged by the db.session.get(User, primary_key)
+# db.drop_all() removes all of the tables
 
 
 
