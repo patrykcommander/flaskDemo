@@ -1,8 +1,9 @@
-from flask import render_template, url_for, flash, redirect
-from flaskblog import app
+from flask import render_template, url_for, flash, redirect, request
+from flaskblog import app, db, bcrypt
 from flaskblog.forms import RegistrationForm, LoginForm
 from flaskblog.models import User, Post
 from datetime import datetime
+from flask_login import login_user, current_user, logout_user, login_required
 
 
 
@@ -38,21 +39,45 @@ def about():
 
 @app.route("/register", methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
     formReg = RegistrationForm()
     if formReg.validate_on_submit():
-        flash(f'Account created for {formReg.username.data}!', 'success')
-        return redirect(url_for('home'))
+        hashed_pw = bcrypt.generate_password_hash(formReg.password.data).decode('utf-8') 
+        # hashing the password entered by the user
+        # decode function returns the hased password as a string (else without the decode func, the has function returns the byte version)
+        user = User(userName = formReg.userName.data, email = formReg.email.data, password=hashed_pw)
+        db.session.add(user)
+        db.session.commit()
+        flash(f'Account created for {formReg.userName.data}!', 'success')
+        return redirect(url_for('login'))
     return render_template('register.html', title='Register', form=formReg)
 
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
     formLog = LoginForm()
     if formLog.validate_on_submit():
-        if formLog.email.data == 'admin@blog.com' and formLog.password.data == 'password':
-            flash('You have been logged in!', 'success')
-            return redirect(url_for('home'))
+        user = User.query.filter_by(email=formLog.email.data).first()
+        if user and bcrypt.check_password_hash(user.password , formLog.password.data):
+            login_user(user, remember=formLog.remember.data)
+            next_page = request.args.get('next')
+            return redirect(url_for('account')) if next_page else redirect(url_for('home'))
         else:
-            flash('Login Unsuccessful. Please check username and password', 'danger')
+            flash('Login Unsuccessful. Please check email and password', 'danger')
             return redirect(url_for('login'))
     return render_template('login.html', title='Login', form=formLog)
+
+@app.route("/logout", methods=['GET', 'POST'])
+def logout():
+    logout_user()
+    return redirect(url_for('home'))
+
+
+@app.route('/account')
+@login_required
+def account():
+    return render_template('account.html', title='Account')
+
